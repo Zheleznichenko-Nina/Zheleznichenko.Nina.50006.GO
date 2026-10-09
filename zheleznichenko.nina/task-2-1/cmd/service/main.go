@@ -25,27 +25,28 @@ type Config struct {
 }
 
 func (c *Config) UnmarshalYAML(node *yaml.Node) error {
-	type rawConfig Config
-
-	var raw rawConfig
-
-	if err := node.Decode(&raw); err == nil && (raw.InputFile != "" || raw.OutputFile != "") {
-		*c = Config(raw)
-
-		return nil
+	var raw struct {
+		InputFileCamel  string `yaml:"inputFile"`
+		OutputFileCamel string `yaml:"outputFile"`
+		InputFileKebab  string `yaml:"input-file"`
+		OutputFileKebab string `yaml:"output-file"`
 	}
 
-	var aux struct {
-		InputFile  string `yaml:"input-file"`
-		OutputFile string `yaml:"output-file"`
+	if err := node.Decode(&raw); err != nil {
+		return fmt.Errorf("decode config yaml: %w", err)
 	}
 
-	if err := node.Decode(&aux); err != nil {
-		return fmt.Errorf("decode yaml config: %w", err)
+	if raw.InputFileCamel != "" {
+		c.InputFile = raw.InputFileCamel
+	} else {
+		c.InputFile = raw.InputFileKebab
 	}
 
-	c.InputFile = aux.InputFile
-	c.OutputFile = aux.OutputFile
+	if raw.OutputFileCamel != "" {
+		c.OutputFile = raw.OutputFileCamel
+	} else {
+		c.OutputFile = raw.OutputFileKebab
+	}
 
 	return nil
 }
