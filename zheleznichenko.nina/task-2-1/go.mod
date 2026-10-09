@@ -1,6 +1,6 @@
 module github.com/Zheleznichenko-Nina/task-2-1
 
-go 1.26.0
+go 1.22.0
 
 require (
 	golang.org/x/net v0.60.0
