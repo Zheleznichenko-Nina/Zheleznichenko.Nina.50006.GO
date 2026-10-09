@@ -26,10 +26,12 @@ type Config struct {
 
 func (c *Config) UnmarshalYAML(node *yaml.Node) error {
 	type rawConfig Config
+
 	var raw rawConfig
 
 	if err := node.Decode(&raw); err == nil && (raw.InputFile != "" || raw.OutputFile != "") {
 		*c = Config(raw)
+
 		return nil
 	}
 
