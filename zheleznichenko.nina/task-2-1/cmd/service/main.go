@@ -17,9 +17,35 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var errConfigRequired = errors.New("config file flag -config is required")
+
 type Config struct {
 	InputFile  string `yaml:"inputFile"`
 	OutputFile string `yaml:"outputFile"`
+}
+
+func (c *Config) UnmarshalYAML(node *yaml.Node) error {
+	type rawConfig Config
+	var raw rawConfig
+
+	if err := node.Decode(&raw); err == nil && (raw.InputFile != "" || raw.OutputFile != "") {
+		*c = Config(raw)
+		return nil
+	}
+
+	var aux struct {
+		InputFile  string `yaml:"input-file"`
+		OutputFile string `yaml:"output-file"`
+	}
+
+	if err := node.Decode(&aux); err != nil {
+		return fmt.Errorf("decode yaml config: %w", err)
+	}
+
+	c.InputFile = aux.InputFile
+	c.OutputFile = aux.OutputFile
+
+	return nil
 }
 
 type ValCurs struct {
@@ -50,7 +76,7 @@ func run() error {
 	flag.Parse()
 
 	if *configPath == "" {
-		return errors.New("config file flag -config is required")
+		return errConfigRequired
 	}
 
 	cfg, err := loadConfig(*configPath)
@@ -71,18 +97,21 @@ func loadConfig(path string) (Config, error) {
 
 	configData, err := os.ReadFile(path)
 	if err != nil {
-		return cfg, err
+		return cfg, fmt.Errorf("read config file: %w", err)
 	}
 
 	err = yaml.Unmarshal(configData, &cfg)
+	if err != nil {
+		return cfg, fmt.Errorf("unmarshal yaml: %w", err)
+	}
 
-	return cfg, err
+	return cfg, nil
 }
 
 func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 	xmlData, err := os.ReadFile(inputFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read xml file: %w", err)
 	}
 
 	decoder := xml.NewDecoder(bytes.NewReader(xmlData))
@@ -92,7 +121,7 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 
 	err = decoder.Decode(&valCurs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode xml: %w", err)
 	}
 
 	results := make([]CurrencyResult, 0, len(valCurs.Valute))
@@ -102,7 +131,7 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 
 		valFloat, err := strconv.ParseFloat(cleanValue, 64)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse valute float: %w", err)
 		}
 
 		results = append(results, CurrencyResult{
@@ -125,14 +154,19 @@ func saveResults(outputFile string, results []CurrencyResult) error {
 	if outDir != "" {
 		err := os.MkdirAll(outDir, 0755)
 		if err != nil {
-			return err
+			return fmt.Errorf("create output dir: %w", err)
 		}
 	}
 
 	jsonData, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal json: %w", err)
 	}
 
-	return os.WriteFile(outputFile, jsonData, 0600)
+	err = os.WriteFile(outputFile, jsonData, 0600)
+	if err != nil {
+		return fmt.Errorf("write output file: %w", err)
+	}
+
+	return nil
 }
