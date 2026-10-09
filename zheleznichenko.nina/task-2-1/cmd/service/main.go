@@ -25,27 +25,21 @@ type Config struct {
 }
 
 func (c *Config) UnmarshalYAML(node *yaml.Node) error {
-	var raw struct {
-		InputFileCamel  string `yaml:"inputFile"`
-		OutputFileCamel string `yaml:"outputFile"`
-		InputFileKebab  string `yaml:"input-file"`
-		OutputFileKebab string `yaml:"output-file"`
+	var m map[string]string
+	if err := node.Decode(&m); err != nil {
+		return fmt.Errorf("decode yaml to map: %w", err)
 	}
 
-	if err := node.Decode(&raw); err != nil {
-		return fmt.Errorf("decode config yaml: %w", err)
+	if val, ok := m["inputFile"]; ok {
+		c.InputFile = val
+	} else if val, ok := m["input-file"]; ok {
+		c.InputFile = val
 	}
 
-	if raw.InputFileCamel != "" {
-		c.InputFile = raw.InputFileCamel
-	} else {
-		c.InputFile = raw.InputFileKebab
-	}
-
-	if raw.OutputFileCamel != "" {
-		c.OutputFile = raw.OutputFileCamel
-	} else {
-		c.OutputFile = raw.OutputFileKebab
+	if val, ok := m["outputFile"]; ok {
+		c.OutputFile = val
+	} else if val, ok := m["output-file"]; ok {
+		c.OutputFile = val
 	}
 
 	return nil
@@ -103,8 +97,7 @@ func loadConfig(path string) (Config, error) {
 		return cfg, fmt.Errorf("read config file: %w", err)
 	}
 
-	err = yaml.Unmarshal(configData, &cfg)
-	if err != nil {
+	if err := yaml.Unmarshal(configData, &cfg); err != nil {
 		return cfg, fmt.Errorf("unmarshal yaml: %w", err)
 	}
 
@@ -121,9 +114,7 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 	decoder.CharsetReader = charset.NewReaderLabel
 
 	var valCurs ValCurs
-
-	err = decoder.Decode(&valCurs)
-	if err != nil {
+	if err := decoder.Decode(&valCurs); err != nil {
 		return nil, fmt.Errorf("decode xml: %w", err)
 	}
 
@@ -155,8 +146,7 @@ func saveResults(outputFile string, results []CurrencyResult) error {
 	outDir := filepath.Dir(outputFile)
 
 	if outDir != "" {
-		err := os.MkdirAll(outDir, 0755)
-		if err != nil {
+		if err := os.MkdirAll(outDir, 0755); err != nil {
 			return fmt.Errorf("create output dir: %w", err)
 		}
 	}
@@ -166,8 +156,7 @@ func saveResults(outputFile string, results []CurrencyResult) error {
 		return fmt.Errorf("marshal json: %w", err)
 	}
 
-	err = os.WriteFile(outputFile, jsonData, 0600)
-	if err != nil {
+	if err := os.WriteFile(outputFile, jsonData, 0600); err != nil {
 		return fmt.Errorf("write output file: %w", err)
 	}
 
