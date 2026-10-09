@@ -24,27 +24,6 @@ type Config struct {
 	OutputFile string `yaml:"outputFile"`
 }
 
-func (c *Config) UnmarshalYAML(node *yaml.Node) error {
-	var m map[string]string
-	if err := node.Decode(&m); err != nil {
-		return fmt.Errorf("decode yaml to map: %w", err)
-	}
-
-	if val, ok := m["inputFile"]; ok {
-		c.InputFile = val
-	} else if val, ok := m["input-file"]; ok {
-		c.InputFile = val
-	}
-
-	if val, ok := m["outputFile"]; ok {
-		c.OutputFile = val
-	} else if val, ok := m["output-file"]; ok {
-		c.OutputFile = val
-	}
-
-	return nil
-}
-
 type ValCurs struct {
 	Valute []Valute `xml:"Valute"`
 }
@@ -114,6 +93,7 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 	decoder.CharsetReader = charset.NewReaderLabel
 
 	var valCurs ValCurs
+
 	if err := decoder.Decode(&valCurs); err != nil {
 		return nil, fmt.Errorf("decode xml: %w", err)
 	}
