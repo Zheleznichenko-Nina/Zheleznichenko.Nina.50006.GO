@@ -17,9 +17,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	errConfigRequired = errors.New("config file flag -config is required")
+	errInputRequired  = errors.New("input-file is required in config")
+	errOutputRequired = errors.New("output-file is required in config")
+)
+
 type Config struct {
-	InputFile  string `yaml:"input-file"`
-	OutputFile string `yaml:"output-file"`
+	InputFile  string `yaml:"inputFile"`
+	OutputFile string `yaml:"outputFile"`
 }
 
 type ValCurs struct {
@@ -33,8 +39,8 @@ type Valute struct {
 }
 
 type CurrencyResult struct {
-	NumCode  int     `json:"num_code"`
-	CharCode string  `json:"char_code"`
+	NumCode  int     `json:"numCode"`
+	CharCode string  `json:"charCode"`
 	Value    float64 `json:"value"`
 }
 
@@ -49,7 +55,7 @@ func run() error {
 	flag.Parse()
 
 	if strings.TrimSpace(*configPath) == "" {
-		return errors.New("config file flag -config is required")
+		return errConfigRequired
 	}
 
 	cfg, err := loadConfig(*configPath)
@@ -73,19 +79,26 @@ func loadConfig(path string) (Config, error) {
 		return cfg, fmt.Errorf("read config file: %w", err)
 	}
 
-	if err := yaml.Unmarshal(configData, &cfg); err != nil {
+	var values map[string]string
+	if err := yaml.Unmarshal(configData, &values); err != nil {
 		return cfg, fmt.Errorf("unmarshal yaml: %w", err)
 	}
 
-	cfg.InputFile = strings.TrimSpace(cfg.InputFile)
-	cfg.OutputFile = strings.TrimSpace(cfg.OutputFile)
-
+	cfg.InputFile = strings.TrimSpace(values["input-file"])
 	if cfg.InputFile == "" {
-		return cfg, errors.New("input-file is required in config")
+		cfg.InputFile = strings.TrimSpace(values["inputFile"])
 	}
 
+	cfg.OutputFile = strings.TrimSpace(values["output-file"])
 	if cfg.OutputFile == "" {
-		return cfg, errors.New("output-file is required in config")
+		cfg.OutputFile = strings.TrimSpace(values["outputFile"])
+	}
+
+	if cfg.InputFile == "" {
+		return cfg, errInputRequired
+	}
+	if cfg.OutputFile == "" {
+		return cfg, errOutputRequired
 	}
 
 	return cfg, nil
@@ -140,18 +153,27 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 func saveResults(outputFile string, results []CurrencyResult) error {
 	outDir := filepath.Dir(outputFile)
 
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
-	jsonData, err := json.MarshalIndent(results, "", "  ")
+	output := make([]map[string]any, 0, len(results))
+	for _, item := range results {
+		output = append(output, map[string]any{
+			"num_code":  item.NumCode,
+			"char_code": item.CharCode,
+			"value":     item.Value,
+		})
+	}
+
+	jsonData, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal json: %w", err)
 	}
 
 	jsonData = append(jsonData, '\n')
 
-	if err := os.WriteFile(outputFile, jsonData, 0644); err != nil {
+	if err := os.WriteFile(outputFile, jsonData, 0o600); err != nil {
 		return fmt.Errorf("write output file: %w", err)
 	}
 
