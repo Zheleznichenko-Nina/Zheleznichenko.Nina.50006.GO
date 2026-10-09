@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,8 +18,8 @@ import (
 )
 
 type Config struct {
-	InputFile  string `yaml:"input-file"`
-	OutputFile string `yaml:"output-file"`
+	InputFile  string `yaml:"inputFile"`
+	OutputFile string `yaml:"outputFile"`
 }
 
 type ValCurs struct {
@@ -31,56 +33,81 @@ type Valute struct {
 }
 
 type CurrencyResult struct {
-	NumCode  int     `json:"num_code"`
-	CharCode string  `json:"char_code"`
+	NumCode  int     `json:"numCode"`
+	CharCode string  `json:"charCode"`
 	Value    float64 `json:"value"`
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	configPath := flag.String("config", "", "Path to config file")
 	flag.Parse()
 
 	if *configPath == "" {
-		panic("Config file flag -config is required")
+		return errors.New("config file flag -config is required")
 	}
 
-	configData, err := os.ReadFile(*configPath)
+	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
+	results, err := processCurrencyData(cfg.InputFile)
+	if err != nil {
+		return err
+	}
+
+	return saveResults(cfg.OutputFile, results)
+}
+
+func loadConfig(path string) (Config, error) {
 	var cfg Config
+
+	configData, err := os.ReadFile(path)
+	if err != nil {
+		return cfg, err
+	}
+
 	err = yaml.Unmarshal(configData, &cfg)
+
+	return cfg, err
+}
+
+func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
+	xmlData, err := os.ReadFile(inputFile)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	xmlData, err := os.ReadFile(cfg.InputFile)
-	if err != nil {
-		panic(err)
-	}
-
-	// Создаем XML-декодер с поддержкой кодировки windows-1251
 	decoder := xml.NewDecoder(bytes.NewReader(xmlData))
 	decoder.CharsetReader = charset.NewReaderLabel
 
 	var valCurs ValCurs
+
 	err = decoder.Decode(&valCurs)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	var results []CurrencyResult
-	for _, v := range valCurs.Valute {
-		cleanValue := strings.ReplaceAll(v.ValueStr, ",", ".")
+	results := make([]CurrencyResult, 0, len(valCurs.Valute))
+
+	for _, item := range valCurs.Valute {
+		cleanValue := strings.ReplaceAll(item.ValueStr, ",", ".")
+
 		valFloat, err := strconv.ParseFloat(cleanValue, 64)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		results = append(results, CurrencyResult{
-			NumCode:  v.NumCode,
-			CharCode: v.CharCode,
+			NumCode:  item.NumCode,
+			CharCode: item.CharCode,
 			Value:    valFloat,
 		})
 	}
@@ -89,21 +116,23 @@ func main() {
 		return results[i].Value > results[j].Value
 	})
 
-	outDir := filepath.Dir(cfg.OutputFile)
+	return results, nil
+}
+
+func saveResults(outputFile string, results []CurrencyResult) error {
+	outDir := filepath.Dir(outputFile)
+
 	if outDir != "" {
-		err = os.MkdirAll(outDir, 0755)
+		err := os.MkdirAll(outDir, 0755)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
 	jsonData, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	err = os.WriteFile(cfg.OutputFile, jsonData, 0644)
-	if err != nil {
-		panic(err)
-	}
+	return os.WriteFile(outputFile, jsonData, 0600)
 }
