@@ -17,11 +17,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var errConfigRequired = errors.New("config file flag -config is required")
-
 type Config struct {
-	InputFile  string `yaml:"inputFile"`
-	OutputFile string `yaml:"outputFile"`
+	InputFile  string `yaml:"input-file"`
+	OutputFile string `yaml:"output-file"`
 }
 
 type ValCurs struct {
@@ -35,15 +33,14 @@ type Valute struct {
 }
 
 type CurrencyResult struct {
-	NumCode  int     `json:"numCode"`
-	CharCode string  `json:"charCode"`
+	NumCode  int     `json:"num_code"`
+	CharCode string  `json:"char_code"`
 	Value    float64 `json:"value"`
 }
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 }
 
@@ -51,8 +48,8 @@ func run() error {
 	configPath := flag.String("config", "", "Path to config file")
 	flag.Parse()
 
-	if *configPath == "" {
-		return errConfigRequired
+	if strings.TrimSpace(*configPath) == "" {
+		return errors.New("config file flag -config is required")
 	}
 
 	cfg, err := loadConfig(*configPath)
@@ -80,6 +77,17 @@ func loadConfig(path string) (Config, error) {
 		return cfg, fmt.Errorf("unmarshal yaml: %w", err)
 	}
 
+	cfg.InputFile = strings.TrimSpace(cfg.InputFile)
+	cfg.OutputFile = strings.TrimSpace(cfg.OutputFile)
+
+	if cfg.InputFile == "" {
+		return cfg, errors.New("input-file is required in config")
+	}
+
+	if cfg.OutputFile == "" {
+		return cfg, errors.New("output-file is required in config")
+	}
+
 	return cfg, nil
 }
 
@@ -93,7 +101,6 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 	decoder.CharsetReader = charset.NewReaderLabel
 
 	var valCurs ValCurs
-
 	if err := decoder.Decode(&valCurs); err != nil {
 		return nil, fmt.Errorf("decode xml: %w", err)
 	}
@@ -101,17 +108,25 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 	results := make([]CurrencyResult, 0, len(valCurs.Valute))
 
 	for _, item := range valCurs.Valute {
-		cleanValue := strings.ReplaceAll(item.ValueStr, ",", ".")
+		cleanValue := strings.ReplaceAll(
+			strings.TrimSpace(item.ValueStr),
+			",",
+			".",
+		)
 
-		valFloat, err := strconv.ParseFloat(cleanValue, 64)
+		value, err := strconv.ParseFloat(cleanValue, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse valute float: %w", err)
+			return nil, fmt.Errorf(
+				"parse currency value %q: %w",
+				item.ValueStr,
+				err,
+			)
 		}
 
 		results = append(results, CurrencyResult{
 			NumCode:  item.NumCode,
 			CharCode: item.CharCode,
-			Value:    valFloat,
+			Value:    value,
 		})
 	}
 
@@ -125,10 +140,8 @@ func processCurrencyData(inputFile string) ([]CurrencyResult, error) {
 func saveResults(outputFile string, results []CurrencyResult) error {
 	outDir := filepath.Dir(outputFile)
 
-	if outDir != "" {
-		if err := os.MkdirAll(outDir, 0755); err != nil {
-			return fmt.Errorf("create output dir: %w", err)
-		}
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
 	}
 
 	jsonData, err := json.MarshalIndent(results, "", "  ")
@@ -136,7 +149,9 @@ func saveResults(outputFile string, results []CurrencyResult) error {
 		return fmt.Errorf("marshal json: %w", err)
 	}
 
-	if err := os.WriteFile(outputFile, jsonData, 0600); err != nil {
+	jsonData = append(jsonData, '\n')
+
+	if err := os.WriteFile(outputFile, jsonData, 0644); err != nil {
 		return fmt.Errorf("write output file: %w", err)
 	}
 
