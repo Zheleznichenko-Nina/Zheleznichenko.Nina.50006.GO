@@ -5,20 +5,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 )
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Split(bufio.ScanWords)
+
 	if !scanner.Scan() {
 		return
 	}
 
-	nStr := strings.TrimSpace(scanner.Text())
-	if nStr == "" {
-		return
-	}
-	n, err := strconv.Atoi(nStr)
+	n, err := strconv.Atoi(scanner.Text())
 	if err != nil {
 		return
 	}
@@ -27,14 +24,9 @@ func main() {
 		if !scanner.Scan() {
 			break
 		}
-		kStr := strings.TrimSpace(scanner.Text())
-		if kStr == "" {
-			i--
-			continue
-		}
-		k, err := strconv.Atoi(kStr)
+		k, err := strconv.Atoi(scanner.Text())
 		if err != nil {
-			continue
+			break
 		}
 
 		minTemp := 15
@@ -44,21 +36,14 @@ func main() {
 			if !scanner.Scan() {
 				break
 			}
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" {
-				j--
-				continue
-			}
+			op := scanner.Text()
 
-			parts := strings.Fields(line)
-			if len(parts) < 2 {
-				continue
+			if !scanner.Scan() {
+				break
 			}
-
-			op := parts[0]
-			val, err := strconv.Atoi(parts[1])
+			val, err := strconv.Atoi(scanner.Text())
 			if err != nil {
-				continue
+				break
 			}
 
 			switch op {
@@ -70,10 +55,17 @@ func main() {
 				if val < maxTemp {
 					maxTemp = val
 				}
+			case "=":
+				if val > minTemp {
+					minTemp = val
+				}
+				if val < maxTemp {
+					maxTemp = val
+				}
 			}
 
 			if minTemp <= maxTemp {
-				fmt.Println(maxTemp)
+				fmt.Println(minTemp)
 			} else {
 				fmt.Println(-1)
 			}
