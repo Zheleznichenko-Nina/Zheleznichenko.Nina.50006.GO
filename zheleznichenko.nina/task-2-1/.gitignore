@@ -1,9 +1,0 @@
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-main
-result/
-.idea/
-.vscode/
