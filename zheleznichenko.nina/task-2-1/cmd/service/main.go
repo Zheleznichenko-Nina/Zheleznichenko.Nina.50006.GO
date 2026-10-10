@@ -2,19 +2,26 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 )
 
+var errFailedScan = errors.New("failed to scan token")
+
 func readInt(scanner *bufio.Scanner) (int, error) {
 	if !scanner.Scan() {
-		return 0, fmt.Errorf("failed to scan token")
+		if err := scanner.Err(); err != nil {
+			return 0, fmt.Errorf("scan integer: %w", err)
+		}
+
+		return 0, errFailedScan
 	}
 
 	parsedValue, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("parse integer: %w", err)
 	}
 
 	return parsedValue, nil
@@ -22,7 +29,11 @@ func readInt(scanner *bufio.Scanner) (int, error) {
 
 func readString(scanner *bufio.Scanner) (string, error) {
 	if !scanner.Scan() {
-		return "", fmt.Errorf("failed to scan token")
+		if err := scanner.Err(); err != nil {
+			return "", fmt.Errorf("scan string: %w", err)
+		}
+
+		return "", errFailedScan
 	}
 
 	return scanner.Text(), nil
@@ -31,20 +42,12 @@ func readString(scanner *bufio.Scanner) (string, error) {
 func processCondition(operation string, threshold int, minTemp *int, maxTemp *int) {
 	switch operation {
 	case ">=":
-		if threshold > *minTemp {
-			*minTemp = threshold
-		}
+		*minTemp = max(*minTemp, threshold)
 	case "<=":
-		if threshold < *maxTemp {
-			*maxTemp = threshold
-		}
+		*maxTemp = min(*maxTemp, threshold)
 	case "=":
-		if threshold > *minTemp {
-			*minTemp = threshold
-		}
-		if threshold < *maxTemp {
-			*maxTemp = threshold
-		}
+		*minTemp = max(*minTemp, threshold)
+		*maxTemp = min(*maxTemp, threshold)
 	}
 }
 
@@ -91,8 +94,7 @@ func main() {
 		return
 	}
 
-	err = processTestCases(scanner, testCasesCount)
-	if err != nil {
+	if err := processTestCases(scanner, testCasesCount); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 
