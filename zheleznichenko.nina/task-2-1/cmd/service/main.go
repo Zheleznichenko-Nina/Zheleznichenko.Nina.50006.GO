@@ -7,62 +7,69 @@ import (
 	"strconv"
 )
 
-func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Split(bufio.ScanWords)
-
+func readInt(scanner *bufio.Scanner) (int, error) {
 	if !scanner.Scan() {
-		return
+		return 0, fmt.Errorf("failed to scan token")
 	}
 
-	n, err := strconv.Atoi(scanner.Text())
+	parsedValue, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		return
+		return 0, err
 	}
 
-	for i := 0; i < n; i++ {
-		if !scanner.Scan() {
-			break
+	return parsedValue, nil
+}
+
+func readString(scanner *bufio.Scanner) (string, error) {
+	if !scanner.Scan() {
+		return "", fmt.Errorf("failed to scan token")
+	}
+
+	return scanner.Text(), nil
+}
+
+func processCondition(operation string, threshold int, minTemp *int, maxTemp *int) {
+	switch operation {
+	case ">=":
+		if threshold > *minTemp {
+			*minTemp = threshold
 		}
-		k, err := strconv.Atoi(scanner.Text())
+	case "<=":
+		if threshold < *maxTemp {
+			*maxTemp = threshold
+		}
+	case "=":
+		if threshold > *minTemp {
+			*minTemp = threshold
+		}
+		if threshold < *maxTemp {
+			*maxTemp = threshold
+		}
+	}
+}
+
+func processTestCases(scanner *bufio.Scanner, testCasesCount int) error {
+	for range testCasesCount {
+		operationsCount, err := readInt(scanner)
 		if err != nil {
-			break
+			return err
 		}
 
 		minTemp := 15
 		maxTemp := 30
 
-		for j := 0; j < k; j++ {
-			if !scanner.Scan() {
-				break
-			}
-			op := scanner.Text()
-
-			if !scanner.Scan() {
-				break
-			}
-			val, err := strconv.Atoi(scanner.Text())
+		for range operationsCount {
+			operation, err := readString(scanner)
 			if err != nil {
-				break
+				return err
 			}
 
-			switch op {
-			case ">=":
-				if val > minTemp {
-					minTemp = val
-				}
-			case "<=":
-				if val < maxTemp {
-					maxTemp = val
-				}
-			case "=":
-				if val > minTemp {
-					minTemp = val
-				}
-				if val < maxTemp {
-					maxTemp = val
-				}
+			threshold, err := readInt(scanner)
+			if err != nil {
+				return err
 			}
+
+			processCondition(operation, threshold, &minTemp, &maxTemp)
 
 			if minTemp <= maxTemp {
 				fmt.Println(minTemp)
@@ -70,6 +77,23 @@ func main() {
 				fmt.Println(-1)
 			}
 		}
+	}
+
+	return nil
+}
+
+func main() {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Split(bufio.ScanWords)
+
+	testCasesCount, err := readInt(scanner)
+	if err != nil {
+		return
+	}
+
+	err = processTestCases(scanner, testCasesCount)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 
 	if err := scanner.Err(); err != nil {
