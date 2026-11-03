@@ -18,6 +18,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	outputDirPermissions  = 0o750
+	outputFilePermissions = 0o600
+)
+
 type Config struct {
 	InputFile  string `yaml:"input-file"`
 	OutputFile string `yaml:"output-file"`
@@ -118,11 +123,11 @@ func writeResults(path string, results []CurrencyResult) error {
 	}
 
 	outputDir := filepath.Dir(path)
-	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+	if err := os.MkdirAll(outputDir, outputDirPermissions); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, output, 0o600); err != nil {
+	if err := os.WriteFile(path, output, outputFilePermissions); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
