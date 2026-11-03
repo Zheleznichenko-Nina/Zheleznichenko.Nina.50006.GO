@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -24,9 +25,9 @@ type ValCurs struct {
 }
 
 type Valute struct {
-	NumCode  int    `xml:"NumCode"`
-	CharCode string `xml:"CharCode"`
-	ValueStr string `xml:"Value"`
+	NumCode   int    `xml:"NumCode"`
+	CharCode  string `xml:"CharCode"`
+	ValueStr  string `xml:"Value"`
 	ParsedVal float64
 }
 
