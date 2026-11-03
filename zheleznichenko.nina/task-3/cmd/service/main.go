@@ -65,7 +65,7 @@ func readCurrencies(path string) ([]Valute, error) {
 	decoder.CharsetReader = func(charset string, input io.Reader) (io.Reader, error) {
 		encoding, err := htmlindex.Get(charset)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to detect XML encoding: %w", err)
 		}
 
 		return transform.NewReader(input, encoding.NewDecoder()), nil
@@ -82,6 +82,7 @@ func readCurrencies(path string) ([]Valute, error) {
 func parseCurrencyValues(currencies []Valute) error {
 	for index := range currencies {
 		value := strings.ReplaceAll(currencies[index].ValueStr, ",", ".")
+
 		parsedValue, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
 		if err != nil {
 			return fmt.Errorf("failed to convert currency value: %w", err)
@@ -117,11 +118,11 @@ func writeResults(path string, results []CurrencyResult) error {
 	}
 
 	outputDir := filepath.Dir(path)
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, output, 0600); err != nil {
+	if err := os.WriteFile(path, output, 0o600); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
